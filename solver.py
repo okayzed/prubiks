@@ -1,47 +1,5 @@
 # solve a rubik's cube
 
-# how it works?
-# cube is represented as six sides
-#   2
-# 1 3 5 6
-#   4
-
-# 1 is LEFT
-# 2 is UP
-# 3 is FRONT (FACING US)
-# 4 is DOWN
-# 5 is RIGHT
-# 6 is BACK (away from us)
-
-# to rotate a side we: rotate that side by 90 degrees (transpose), then
-# we rotate the 4 connected faces
-# if we rotate 1, we are rotating 2346 left column
-# if we rotate 2, we rotate the top row of 1356
-# if we rotate 3, we rotate 1245 top
-# if we rotate 4: we are rotating 1356 bottom
-# if we rotate 5: we rotate 2346 right
-# if we rotate 6: we rotate rotate 1245 bottom
-
-# if we rotate 1:
-# 2L -> 3L -> 4L -> 6L
-# if we rotate 2:
-# 1T -> 3T -> 5T -> 6T
-# if we rotate 3, then:
-# 1R -> 2B -> 5L -> 4T
-# if we rotate 4:
-# 1B -> 3B -> 5B -> 6B
-# if we rotate 5:
-# 2R -> 3R -> 4R -> 6R
-# if we rotate 6:
-# 1L -> 2T -> 5R -> 4B
-
-# 1 green
-# 2 white
-# 3 red
-# 4 yellow
-# 5 blue
-# 6 orange
-
 LEFT=1
 UP=2
 FRONT=3
@@ -61,14 +19,13 @@ import colorama
 import termcolor
 colorama.init()
 
-# NEED TO PROPERLY TRANSPOSE MATRIX DEPENDING ON WHICH SIDE IS BEING ROTATED
 TRANSFORMS = {
     LEFT: [(2, LEFT), (3, LEFT), (4, LEFT), (6, RIGHT) ],
     UP: [(1, UP), (3, UP), (5, UP), (6, UP) ],
-    FRONT: list(reversed([(1, RIGHT), (2, DOWN), (5, LEFT), (4, UP)])),
+    FRONT: [(4, UP), (5, LEFT), (2, DOWN), (1, RIGHT)],
     DOWN: [(1, DOWN), (3, DOWN), (5, DOWN), (6, DOWN) ],
-    RIGHT: list(reversed([(2, RIGHT), (3, RIGHT), (4, RIGHT), (6, LEFT) ])),
-    BACK: [(1, LEFT), (2, UP), (5, RIGHT), (4, DOWN)],
+    RIGHT: [(6, LEFT), (4, RIGHT), (3, RIGHT), (2, RIGHT)], # reverse order of LEFT
+    BACK: [(1, LEFT), (2, UP), (5, RIGHT), (4, DOWN)], # reverse order of FRONT
 }
 
 TYPES = {
@@ -88,6 +45,8 @@ COLORS = [
     BLUE,
     ORANGE ]
 
+# This isn't an exact mapping to colors since we
+# can't print the exact colors. orange is replaced by cyan
 COLOR_NAMES = [
     "green",
     "white",
@@ -95,6 +54,8 @@ COLOR_NAMES = [
     "yellow",
     "blue",
     "cyan" ]
+
+INVERT=True
 
 
 def rotate_matrix_ccw(m):
@@ -136,7 +97,7 @@ def rotate_matrix_cw(m):
 class Cube:
     def __init__(self, n=3):
         self.n = n
-        self.sides = [self.make_side(-1)] + [ self.make_side(COLORS[i]) for i in xrange(SIDES) ]
+        self.sides = [self.make_side(n, -1)] + [ self.make_side(n, COLORS[i]) for i in xrange(SIDES) ]
         self.printout = [ [' '] * n * 4 for _ in xrange(4)]
 
     def set_values(self, side, tr, values):
@@ -176,11 +137,6 @@ class Cube:
             transform = list(reversed(transform))
         else:
             self.sides[type] = rotate_matrix_cw(self.sides[type])
-       
-        print '---'
-        print "TRANSFORM", TYPES[type] + ("'" if reverse else "")
-        print '---'
-        print ''
 
         prev = None
         last = self.get_values(*transform[-1])
@@ -192,20 +148,9 @@ class Cube:
 
         self.set_values(transform[0][0], transform[0][1], last)
 
-
-
-    def make_side(self, color):
-        return [ [color] * self.n for _ in xrange(self.n) ]
-
-    def print_side(self, i):
-        for j in xrange(self.n):
-            print ''.join(map(str, self.sides[i][j]))
-        print ''
-
-    def print_blank(self):
-        for _ in xrange(self.n):
-            print ''.join([' '] * self.n)
-        print ''
+    @classmethod
+    def make_side(self, n, color):
+        return [ [color] * n for _ in xrange(n) ]
 
     def print_sides(self, sides):
         n = self.n+1
@@ -229,7 +174,7 @@ class Cube:
 
         print '\n'.join([ ''.join(map(str, b)) for b in buf])
         print ''
-                
+
 
     def print_cube(self):
         self.print_sides([0,2,0,0])
@@ -237,23 +182,138 @@ class Cube:
         self.print_sides([0,4,0,0])
 
 
-available = TRANSFORMS.keys()
+    def scramble(self, k):
+        available = TRANSFORMS.keys()
+
+        import random
+        moves = []
+        for _ in xrange(k):
+            moves.append((random.choice(available), random.choice([True, False])))
+
+        return moves
+
+    def execute(self, moves, printout=True):
+        for move in moves:
+            c.rotate(*move)
+            if printout:
+                print '---'
+                type = move[0]
+                reverse = False
+                if len(move) > 1:
+                    reverse = move[1]
+
+                print "TRANSFORM", TYPES[type] + ("'" if reverse else "")
+                print '---'
+                print ''
+
+                c.print_cube()
+
+    def distance_from_solved(self):
+        if self.n != 3:
+            print "DONT KNOW MID"
+            return
+
+        mid = 1
+        errors = 0
+        for side in self.sides:
+            side_color = side[mid][mid]
+            for i in xrange(self.n):
+                for j in xrange(self.n):
+                    if side[i][j] != side_color:
+                        errors += 1
+
+        return errors / 8.0
+
+    def find_next(self):
+        available = TRANSFORMS.keys()
+        moves = []
+        for move in available:
+            self.rotate(move)
+            s = self.serialize()
+            moves.append((s, move, False, self.distance_from_solved()))
+            self.rotate(move, INVERT)
+
+        for move in available:
+            self.rotate(move, INVERT)
+            s = self.serialize()
+            moves.append((s, move, INVERT, self.distance_from_solved()))
+            self.rotate(move)
+
+        return moves
+
+    def serialize(self):
+        lines = [""] * self.n
+        for i in xrange(self.n):
+            lines[i] = "".join([ "".join(map(str, self.sides[j][i])) for j in xrange(1, SIDES+1) ])
+
+        return "\n".join(lines)
+
+    @classmethod
+    def deserialize(self, s):
+        lines = s.split("\n")
+        n = len(lines[0]) / 6
+        sides = [self.make_side(n, -1)] + [ self.make_side(n, COLORS[i]) for i in xrange(SIDES) ]
+        for i in xrange(SIDES):
+            for j in xrange(n):
+                sides[i+1][j] = map(int, lines[j][i*n:(i+1)*n])
+
+        cube = Cube(n)
+        cube.sides = sides
+        return cube
+
+import heapq
+def solve(cube):
+    d = cube.distance_from_solved()
+    h = [(d, cube.serialize(), None, None, 0)]
+    seen = {}
+    iter = 0
+
+    best = h[0][0]
+    while h:
+        distance, s, move, invert, iter = heapq.heappop(h)
+        best = min(best, distance)
+
+        if move:
+            it = TYPES[move]
+            if invert:
+                it+= "'"
+
+            print it, "DISTANCE:", distance, "ITER", iter, "BEST", best
+        print ""
+        c = Cube.deserialize(s)
+        c.print_cube()
+        if s in seen and seen[s] == 2:
+            continue
+
+
+        if iter > 100:
+            continue
+
+        if distance == 0:
+            break
+
+        moves = c.find_next()
+        for s, move, invert, distance in moves:
+            if s in seen:
+                continue
+            seen[s] = 1
+
+
+            heapq.heappush(h, (distance, s, move, invert, iter+1))
+        seen[s] = 2
+
 
 import random
-moves = []
-for _ in xrange(5):
-    moves.append(random.choice(available))
+random.seed(5)
+if __name__ == "__main__":
+    c = Cube()
+    moves = c.scramble(2)
+    c.execute(moves, printout=False)
 
-c = Cube()
-c.print_cube()
+    solve(c)
 
-for move in moves:
-    c.rotate(move)
-    c.print_cube()
-
-print "GOING BACKWARDS"
-
-for move in reversed(moves):
-    c.rotate(move, True)
-    c.print_cube()
+    # for each move, we say it's an inverse by specifying True
+    # solution = map(lambda w: (w[0], not w[1]), reversed(moves))
+    # c.execute(solution, printout=False)
+    # c.print_cube()
 
