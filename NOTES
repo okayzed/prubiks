@@ -1,0 +1,43 @@
+how it works?
+cube is represented as six sides
+  2
+1 3 5 6
+  4
+
+1 green
+2 white
+3 red
+4 yellow
+5 blue
+6 orange
+
+1 is LEFT
+2 is UP
+3 is FRONT (FACING US)
+4 is DOWN
+5 is RIGHT
+6 is BACK (away from us)
+
+to rotate a side we: rotate that side by 90 degrees (transpose), then
+we rotate the 4 connected faces
+if we rotate 1, we are rotating 2346 left column
+if we rotate 2, we rotate the top row of 1356
+if we rotate 3, we rotate 1245 top
+if we rotate 4: we are rotating 1356 bottom
+if we rotate 5: we rotate 2346 right
+if we rotate 6: we rotate rotate 1245 bottom
+
+therefore:
+
+if we rotate 1:
+2L -> 3L -> 4L -> 6L
+if we rotate 2:
+1T -> 3T -> 5T -> 6T
+if we rotate 3, then:
+1R -> 2B -> 5L -> 4T
+if we rotate 4:
+1B -> 3B -> 5B -> 6B
+if we rotate 5:
+2R -> 3R -> 4R -> 6R
+if we rotate 6:
+1L -> 2T -> 5R -> 4B
